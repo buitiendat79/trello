@@ -102,7 +102,6 @@ const Home = () => {
 
   return (
     <div className="flex gap-4 p-4 bg-blue-100 min-h-screen">
-      {/* Wrapper chứa 3 board */}
       <div className="flex gap-4 flex-grow">
         <TodoBoard
           cards={boards.todo}
@@ -121,7 +120,6 @@ const Home = () => {
         />
       </div>
 
-      {/* Pie Chart nằm ở khu vực bên phải */}
       <div className="w-[450px] bg-white rounded-xl shadow p-4">
         <TabPieChart boards={boards} />
       </div>
