@@ -1,58 +1,141 @@
-import { ReactElement } from 'react'
-import Table from '../components/table/Table'
+import React, { useEffect, useState } from 'react';
+import TodoBoard from '../components/todo';
+import InprocessBoard from '../components/inprocess';
+import DoneBoard from './../components/done';
+import TaskModal from './../components/modal';
+import TabPieChart from '../components/taskchart';
 
-function Home(): ReactElement {
-  return (
-    <body className="bg-gradient-to-r from-purple-500 to-pink-500 min-h-screen">
-    <header className="bg-black text-white p-4 flex justify-between items-center">
-      <div className="flex items-center space-x-6">
-        <a href="SkyProperties">SkyProperties</a>
-        <a href="#" className="hover:underline">Screenshots</a>
-        <a href="#" className="hover:underline">Property Listings</a>
-      </div>
-      <nav>
-        <a href="#" className="hover:underline">Login</a>
-      </nav>
-    </header>
-
-    <div className="flex items-center justify-center mt-10">
-      <div className="bg-white p-8 rounded-xl shadow-lg max-w-lg w-full">
-        <p className="text-center mb-4">
-          To login as admin, please use the credentials below:
-        </p>
-        <p className="text-center font-bold">
-          Email:
-          <span className="font-normal">admin@tadabase.io</span>
-        </p>
-        <p className="text-center font-bold">
-          Password:
-          <span className="font-normal">123456</span>
-        </p>
-        <form className="mt-4">
-          <label className="block mb-2">Email Address</label>
-          <input
-            type="email"
-            placeholder="Email Address"
-            className="w-full p-3 border rounded-lg mb-4"
-          />
-
-          <label className="block mb-2">Password</label>
-          <input
-            type="password"
-            placeholder="Password"
-            className="w-full p-3 border rounded-lg mb-4"
-          />
-
-          <button
-            className="w-full bg-green-500 text-white p-3 rounded-lg hover:bg-green-600"
-          >
-            SIGN IN
-          </button>
-        </form>
-      </div>
-    </div>
-  </body>
-  )
+interface Card {
+  id?: string | number;
+  board: string;
+  content: string;
+  description?: string;
+  comments?: string[];
 }
 
-export default Home
+const Home = () => {
+  const [boards, setBoards] = useState<{
+    todo: Card[];
+    inprocess: Card[];
+    done: Card[];
+  }>({
+    todo: [],
+    inprocess: [],
+    done: [],
+  });
+
+  const [selectedTask, setSelectedTask] = useState<Card | null>(null);
+
+  useEffect(() => {
+    fetch('http://localhost:3000/cards')
+      .then(res => res.json())
+      .then((data: Card[]) => {
+        const grouped = {
+          todo: data.filter(card => card.board === 'todo'),
+          inprocess: data.filter(card => card.board === 'inprocess'),
+          done: data.filter(card => card.board === 'done'),
+        };
+        setBoards(grouped);
+      });
+  }, []);
+
+  const addCard = (board: string, content: string) => {
+    const newCard: Card = {
+      board,
+      content,
+      description: '',
+      comments: [],
+    };
+
+    fetch('http://localhost:3000/cards', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newCard),
+    })
+      .then(res => res.json())
+      .then(createdCard => {
+        setBoards(prev => ({
+          ...prev,
+          [board]: [...prev[board], createdCard],
+        }));
+      });
+  };
+
+  const updateCard = (updatedCard: Card) => {
+    fetch(`http://localhost:3000/cards/${updatedCard.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedCard),
+    }).then(() => {
+      setBoards(prev => {
+        const newBoards = {
+          todo: prev.todo.filter(card => card.id !== updatedCard.id),
+          inprocess: prev.inprocess.filter(card => card.id !== updatedCard.id),
+          done: prev.done.filter(card => card.id !== updatedCard.id),
+        };
+
+        if (newBoards[updatedCard.board]) {
+          newBoards[updatedCard.board].push(updatedCard);
+        }
+
+        return newBoards;
+      });
+    });
+  };
+
+  const deleteCard = (id?: string | number) => {
+    if (!id) return;
+
+    fetch(`http://localhost:3000/cards/${id}`, {
+      method: 'DELETE',
+    }).then(() => {
+      setBoards(prev => {
+        const newBoards = { ...prev };
+        (['todo', 'inprocess', 'done'] as const).forEach(board => {
+          newBoards[board] = newBoards[board].filter(card => card.id !== id);
+        });
+        return newBoards;
+      });
+      setSelectedTask(null);
+    });
+  };
+
+  return (
+    <div className="flex gap-4 p-4 bg-blue-100 min-h-screen">
+      {/* Wrapper chứa 3 board */}
+      <div className="flex gap-4 flex-grow">
+        <TodoBoard
+          cards={boards.todo}
+          onAdd={content => addCard('todo', content)}
+          onCardClick={setSelectedTask}
+        />
+        <InprocessBoard
+          cards={boards.inprocess}
+          onAdd={content => addCard('inprocess', content)}
+          onCardClick={setSelectedTask}
+        />
+        <DoneBoard
+          cards={boards.done}
+          onAdd={content => addCard('done', content)}
+          onCardClick={setSelectedTask}
+        />
+      </div>
+
+      {/* Pie Chart nằm ở khu vực bên phải */}
+      <div className="w-[450px] bg-white rounded-xl shadow p-4">
+        <TabPieChart boards={boards} />
+      </div>
+
+      {selectedTask && (
+        <TaskModal
+          task={selectedTask}
+          onClose={() => setSelectedTask(null)}
+          onUpdate={updateCard}
+          onDelete={deleteCard}
+        />
+      )}
+    </div>
+  );
+};
+
+export default Home;

@@ -1,5 +1,25 @@
 import { useState } from "react";
 import { getRoleStyles } from "../../utils";
+import { useEffect } from "react";
+
+const DataTable = () => {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("https://jsonplaceholder.typicode.com/users")
+      .then((response) => response.json())
+      .then((data) => {
+        setData(data);
+        setLoading(false);
+      })
+      .catch((error) => {
+        console.error("error", error);
+        setLoading(false);
+      });
+  }, []);
+  return <>{data}</>;
+}
 
 function TableHeader() {
   return (
@@ -57,4 +77,4 @@ function Table() {
   )
 }
 
-export default Table;
+export default DataTable;
